@@ -5,7 +5,7 @@ PACKET_DEF = [
     Def("flags",    4,  Typename.BYTE),
     Def("signature", 24, Typename.BYTEARRAY),
     Def("checksum", 8,  Typename.BYTE),
-    Def("true", 1,  Typename.BOOLEAN),
+    Def("is_enabled", 1,  Typename.BOOLEAN),
 ]
 
 def main() -> None:
