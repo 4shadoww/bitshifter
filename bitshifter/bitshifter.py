@@ -109,7 +109,8 @@ def generate_plan(definitions: list[Def]) -> None:
                     if var_l_shift > 0:
                         unpack_str = f"({unpack_str} << {var_l_shift})"
 
-                    unpack_final = f"{dest_var} |= ({dest_type}) {unpack_str};"
+                    operator = "=" if remaining_chunk_bits == bits_in_chunk else "|="
+                    unpack_final = f"{dest_var} {operator} ({dest_type}) {unpack_str};"
 
                     # PACK
                     pack_str = dest_var
