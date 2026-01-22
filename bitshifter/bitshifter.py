@@ -69,15 +69,21 @@ def generate_plan(definitions: list[Def]) -> None:
 
         if is_array:
             num_chunks = math.ceil(definition.len / 8)
-            chunk_size = 8
+            remainder = definition.len % 8
+            first_chunk_size = remainder if remainder != 0 else 8
         else:
             num_chunks = 1
-            chunk_size = definition.len
+            first_chunk_size = definition.len
 
         remaining_total = definition.len
 
         for i in range(num_chunks):
-            bits_in_chunk = min(remaining_total, chunk_size)
+            if i == 0:
+                chunk_size = first_chunk_size
+            else:
+                chunk_size = 8
+
+            bits_in_chunk = chunk_size
 
             dest_var = f"val[{i}]" if is_array else "val"
             dest_type = "byte" if is_array else definition.type.value
@@ -95,7 +101,6 @@ def generate_plan(definitions: list[Def]) -> None:
                 mask_str = f"0x{mask:02x}"
 
                 buf_r_shift = (8 - bit_offset - bits_to_process)
-
                 var_l_shift = remaining_chunk_bits - bits_to_process
 
                 if definition.type == Typename.BOOLEAN:
@@ -128,7 +133,6 @@ def generate_plan(definitions: list[Def]) -> None:
 
             remaining_total -= bits_in_chunk
 
-            # Formatting separator between array indices for clarity
             if is_array and remaining_total > 0:
                 print(f"{'':<10} {'':<7} | {'-':<3} | {'-':<7} | {'-':<10} | {'-'*50} | {'-'*20}")
 
