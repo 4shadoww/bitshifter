@@ -30,6 +30,17 @@ class Typename(Enum):
         return self == Typename.BYTEARRAY
 
 @dataclass
+class Plan:
+    name: str
+    type: str
+    idx: int
+    buf_idx: int
+    mask_str: str
+    unpack_final: str
+    pack_final: str
+    is_array_boundary: bool = False
+
+@dataclass
 class Def:
     name: str
     len: int
@@ -52,18 +63,16 @@ def get_type_capacity(typename: Typename) -> int:
             return 32
 
 
-def generate_plan(definitions: list[Def]) -> None:
+def generate_plan(definitions: list[Def]) -> list[Plan] | None:
     current_bit_cursor = 0
-
-    print(f"{'FIELD':<10} {'TYPE':<7} | {'IDX':<3} | {'BUF_IDX':<7} | {'MASK (Hex)':<10} | {'UNPACK (Read Logic)':<50} | {'PACK (Write Logic)'}")
-    print("-" * 155)
+    plan = []
 
     for definition in definitions:
         # Validation
         cap = get_type_capacity(definition.type)
         if definition.len > cap:
             print(f"ERROR: {definition.name} too big for {definition.type.value}")
-            return
+            return None
 
         is_array = definition.type.is_array
 
@@ -126,7 +135,17 @@ def generate_plan(definitions: list[Def]) -> None:
 
                     pack_final = f"buf[{byte_index}] |= (byte) ({pack_str} & {mask_str});"
 
-                print(f"{definition.name:<10} {definition.type.value:<7} | {i:<3} | {byte_index:<7} | {mask_str:<10} | {unpack_final:<50} | {pack_final}")
+                plan.append(
+                    Plan(
+                        name=definition.name,
+                        type=definition.type.value,
+                        idx=i,
+                        buf_idx=byte_index,
+                        mask_str=mask_str,
+                        unpack_final=unpack_final,
+                        pack_final=pack_final,
+                    ),
+                )
 
                 remaining_chunk_bits -= bits_to_process
                 current_bit_cursor += bits_to_process
@@ -134,6 +153,44 @@ def generate_plan(definitions: list[Def]) -> None:
             remaining_total -= bits_in_chunk
 
             if is_array and remaining_total > 0:
-                print(f"{'':<10} {'':<7} | {'-':<3} | {'-':<7} | {'-':<10} | {'-'*50} | {'-'*20}")
+                plan.append(Plan(name="", type="", idx=-1, buf_idx=-1, mask_str="", unpack_final="", pack_final="", is_array_boundary=True))
+
+    return plan
+
+def print_plan(plan: list[Plan]) -> None:
+    print(f"{'FIELD':<10} {'TYPE':<7} | {'IDX':<3} | {'BUF_IDX':<7} | {'MASK (Hex)':<10} | {'UNPACK (Read Logic)':<50} | {'PACK (Write Logic)'}")
+    print("-" * 155)
+
+    for p in plan:
+        if p.is_array_boundary:
+            print(f"{'':<10} {'':<7} | {'-':<3} | {'-':<7} | {'-':<10} | {'-'*50} | {'-'*20}")
+        else:
+            print(f"{p.name:<10} {p.type:<7} | {p.idx:<3} | {p.buf_idx:<7} | {p.mask_str:<10} | {p.unpack_final:<50} | {p.pack_final}")
 
     print("-" * 155)
+
+def print_unpack_plan(plan: list[Plan]) -> None:
+    print(f"{'FIELD':<10} {'TYPE':<7} | {'UNPACK (Read Logic)':<50}")
+    print("-" * 155)
+
+    for p in plan:
+        if p.is_array_boundary:
+            print(f"{'':<10} {'':<7} | {'-'*50}")
+        else:
+            print(f"{p.name:<10} {p.type:<7} | {p.unpack_final:<50}")
+
+    print("-" * 155)
+
+
+def print_pack_plan(plan: list[Plan]) -> None:
+    print(f"{'FIELD':<10} {'TYPE':<7} | {'PACK (Write Logic)'}")
+    print("-" * 155)
+
+    for p in plan:
+        if p.is_array_boundary:
+            print(f"{'':<10} {'':<7} | {'-'*20}")
+        else:
+            print(f"{p.name:<10} {p.type:<7} | {p.pack_final}")
+
+    print("-" * 155)
+
